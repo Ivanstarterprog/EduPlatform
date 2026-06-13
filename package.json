@@ -1,0 +1,16 @@
+{
+  "name": "eduplatform",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"pnpm run dev:main-api\" \"pnpm run dev:worker\"",
+    "dev:main-api": "pnpm -w packages/main-api run start:dev",
+    "dev:worker": "pnpm -w packages/image-worker run dev",
+    "install:all": "pnpm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
