@@ -3,6 +3,17 @@ import { HydratedDocument, Types } from "mongoose";
 
 export type CourseDocument = HydratedDocument<Course>;
 
+class CoverImage {
+  @Prop()
+  filename?: string;
+
+  @Prop()
+  url?: string;
+
+  @Prop({ enum: ["processing", "ready"] })
+  status?: string;
+}
+
 @Schema({ timestamps: true })
 export class Course {
   @Prop({ required: true })
@@ -14,11 +25,8 @@ export class Course {
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
   teacher!: Types.ObjectId;
 
-  @Prop({ default: "" })
-  coverImageUrl!: string;
-
-  @Prop({ enum: ["processing", "ready"], default: "processing" })
-  coverImageStatus!: string;
+  @Prop({ type: CoverImage, default: null })
+  coverImage?: CoverImage | null;
 
   @Prop({ type: [{ type: Types.ObjectId, ref: "Lesson" }], default: [] })
   lessons!: Types.ObjectId[];
