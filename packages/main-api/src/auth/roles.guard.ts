@@ -3,6 +3,7 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  UnauthorizedException,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 
@@ -18,6 +19,7 @@ export class RolesGuard implements CanActivate {
     if (!requiredRole) return true;
     const request = context.switchToHttp().getRequest();
     const user = request.user;
+    if (!user) throw new UnauthorizedException();
     if (user.role !== requiredRole)
       throw new ForbiddenException("Нет доступа!");
     return true;
