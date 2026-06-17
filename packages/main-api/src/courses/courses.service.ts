@@ -3,31 +3,49 @@ import {
   NotFoundException,
   ForbiddenException,
   ConflictException,
+  Inject,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
+import { Cache } from "cache-manager";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Course, CourseDocument } from "./schemas/course.schema";
-import { InjectModel as InjectUserModel } from "@nestjs/mongoose";
 import { User, UserDocument } from "../users/schemas/user.schema";
 
 @Injectable()
 export class CoursesService {
   constructor(
     @InjectModel(Course.name) private courseModel: Model<CourseDocument>,
-    @InjectUserModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @Inject(CACHE_MANAGER) private cache: Cache,
   ) {}
 
   async findAll() {
-    return this.courseModel.find().populate("teacher", "name email").exec();
+    const cached = await this.cache.get<CourseDocument[]>("courses_all");
+    if (cached) return cached;
+
+    const courses = await this.courseModel
+      .find()
+      .populate("teacher", "name email")
+      .exec();
+
+    await this.cache.set("courses_all", courses, 60000);
+    return courses;
   }
 
   async findOne(id: string) {
+    const cacheKey = `course:${id}`;
+    const cached = await this.cache.get<CourseDocument>(cacheKey);
+    if (cached) return cached;
+
     const course = await this.courseModel
       .findById(id)
       .populate("teacher", "name email")
       .populate("lessons")
       .exec();
     if (!course) throw new NotFoundException("Курс не найден");
+
+    await this.cache.set(cacheKey, course, 60000);
     return course;
   }
 
@@ -37,7 +55,9 @@ export class CoursesService {
       description,
       teacher: new Types.ObjectId(teacherId),
     });
-    return course.save();
+    const saved = await course.save();
+    await this.cache.del("courses_all");
+    return saved;
   }
 
   async update(
@@ -52,7 +72,11 @@ export class CoursesService {
 
     if (body.title !== undefined) course.title = body.title;
     if (body.description !== undefined) course.description = body.description;
-    return course.save();
+    const saved = await course.save();
+
+    await this.cache.del("courses_all");
+    await this.cache.del(`course:${id}`);
+    return saved;
   }
 
   async remove(id: string, userId: string) {
@@ -62,6 +86,9 @@ export class CoursesService {
       throw new ForbiddenException("Вы не владелец курса");
 
     await this.courseModel.deleteOne({ _id: id });
+
+    await this.cache.del("courses_all");
+    await this.cache.del(`course:${id}`);
     return { message: "Курс удалён" };
   }
 
@@ -82,6 +109,7 @@ export class CoursesService {
     await user.save();
     await course.save();
 
+    await this.cache.del(`course:${id}`);
     return { message: "Вы успешно записаны на курс" };
   }
 }

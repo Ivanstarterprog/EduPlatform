@@ -2,9 +2,12 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  Inject,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
+import { Cache } from "cache-manager";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Lesson, LessonDocument } from "./schemas/lesson.schema";
 import { Course, CourseDocument } from "../courses/schemas/course.schema";
 import { User, UserDocument } from "../users/schemas/user.schema";
@@ -15,18 +18,31 @@ export class LessonsService {
     @InjectModel(Lesson.name) private lessonModel: Model<LessonDocument>,
     @InjectModel(Course.name) private courseModel: Model<CourseDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @Inject(CACHE_MANAGER) private cache: Cache,
   ) {}
 
   async findByCourse(courseId: string) {
-    return this.lessonModel
+    const cacheKey = `lessons:course:${courseId}`;
+    const cached = await this.cache.get<LessonDocument[]>(cacheKey);
+    if (cached) return cached;
+
+    const lessons = await this.lessonModel
       .find({ courseId: new Types.ObjectId(courseId) })
       .sort({ order: 1 })
       .exec();
+
+    await this.cache.set(cacheKey, lessons, 60000);
+    return lessons;
   }
 
   async findOne(id: string, userId: string) {
-    const lesson = await this.lessonModel.findById(id);
-    if (!lesson) throw new NotFoundException("Урок не найден");
+    const cacheKey = `lesson:${id}`;
+    let lesson = await this.cache.get<LessonDocument>(cacheKey);
+    if (!lesson) {
+      lesson = await this.lessonModel.findById(id);
+      if (!lesson) throw new NotFoundException("Урок не найден");
+      await this.cache.set(cacheKey, lesson, 60000);
+    }
 
     const course = await this.courseModel.findById(lesson.courseId);
     if (!course) throw new NotFoundException("Курс не найден");
@@ -67,6 +83,8 @@ export class LessonsService {
     course.lessons.push(lesson._id as Types.ObjectId);
     await course.save();
 
+    await this.cache.del(`lessons:course:${courseId}`);
+    await this.cache.del(`course:${courseId}`);
     return lesson;
   }
 
@@ -87,7 +105,11 @@ export class LessonsService {
     if (body.content !== undefined) lesson.content = body.content;
     if (body.order !== undefined) lesson.order = body.order;
 
-    return lesson.save();
+    const saved = await lesson.save();
+
+    await this.cache.del(`lesson:${id}`);
+    await this.cache.del(`lessons:course:${lesson.courseId}`);
+    return saved;
   }
 
   async remove(id: string, userId: string) {
@@ -99,12 +121,15 @@ export class LessonsService {
     if (course.teacher.toString() !== userId)
       throw new ForbiddenException("Вы не владелец курса");
 
-    course.lessons = course.lessons.filter(
-      (l) => l.toString() !== id,
-    );
+    course.lessons = course.lessons.filter((l) => l.toString() !== id);
     await course.save();
+
+    const courseId = lesson.courseId.toString();
     await this.lessonModel.deleteOne({ _id: id });
 
+    await this.cache.del(`lesson:${id}`);
+    await this.cache.del(`lessons:course:${courseId}`);
+    await this.cache.del(`course:${courseId}`);
     return { message: "Урок удалён" };
   }
 }

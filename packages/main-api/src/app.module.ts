@@ -4,6 +4,7 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { AuthModule } from "./auth/auth.module";
 import { CoursesModule } from "./courses/courses.module";
 import { LessonsModule } from "./lessons/lessons.module";
+import { RedisModule } from "./redis/redis.module";
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { LessonsModule } from "./lessons/lessons.module";
       }),
       inject: [ConfigService],
     }),
+    RedisModule,
     AuthModule,
     CoursesModule,
     LessonsModule,
