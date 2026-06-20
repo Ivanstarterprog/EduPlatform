@@ -2,11 +2,12 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  StreamableFile,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
-import { join, resolve } from "path";
-import { existsSync } from "fs";
+import { join, resolve, extname } from "path";
+import { createReadStream, existsSync } from "fs";
 import { Image, ImageDocument } from "./schemas/image.schema";
 import { Course, CourseDocument } from "../courses/schemas/course.schema";
 import { Lesson, LessonDocument } from "../lessons/schemas/lesson.schema";
@@ -83,11 +84,19 @@ export class ImagesService {
     return { message: "Изображение загружено, обработка запущена", imageId: image._id };
   }
 
-  async getImage(filename: string) {
+  async getImage(filename: string): Promise<StreamableFile> {
     const processedPath = join(resolve(__dirname, "..", "..", "..", ".."), "uploads", "processed", filename);
-    if (existsSync(processedPath)) {
-      return { filename, path: processedPath };
+    if (!existsSync(processedPath)) {
+      throw new NotFoundException("Изображение ещё не обработано или не найдено");
     }
-    return { filename, message: "Изображение ещё обрабатывается" };
+    const ext = extname(filename).toLowerCase();
+    const mimeMap: Record<string, string> = {
+      ".png": "image/png",
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".webp": "image/webp",
+    };
+    const file = createReadStream(processedPath);
+    return new StreamableFile(file, { type: mimeMap[ext] || "application/octet-stream" });
   }
 }
