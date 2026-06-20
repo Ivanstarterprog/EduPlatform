@@ -5,6 +5,8 @@ import { AuthModule } from "./auth/auth.module";
 import { CoursesModule } from "./courses/courses.module";
 import { LessonsModule } from "./lessons/lessons.module";
 import { RedisModule } from "./redis/redis.module";
+import { KafkaModule } from "./kafka/kafka.module";
+import { ImagesModule } from "./images/images.module";
 
 @Module({
   imports: [
@@ -16,9 +18,11 @@ import { RedisModule } from "./redis/redis.module";
       inject: [ConfigService],
     }),
     RedisModule,
+    KafkaModule,
     AuthModule,
     CoursesModule,
     LessonsModule,
+    ImagesModule,
   ],
 })
 export class AppModule {}
