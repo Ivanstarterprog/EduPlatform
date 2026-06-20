@@ -13,6 +13,8 @@ import { LessonsService } from "./lessons.service";
 import { RolesGuard } from "../auth/roles.guard";
 import { Roles } from "../roles/roles.decorator";
 import { User } from "../users/decorators/user.decorator";
+import { CreateLessonDto } from "./dto/create-lesson.dto";
+import { UpdateLessonDto } from "./dto/update-lesson.dto";
 
 @Controller()
 export class LessonsController {
@@ -26,12 +28,8 @@ export class LessonsController {
   @Post("courses/:courseId/lessons")
   @UseGuards(AuthGuard("jwt"), RolesGuard)
   @Roles("teacher")
-  create(
-    @Param("courseId") courseId: string,
-    @Body() body: { title: string; content: string; order: number },
-    @User("userId") userId: string,
-  ) {
-    return this.lessonsService.create(courseId, body, userId);
+  create(@Param("courseId") courseId: string, @Body() dto: CreateLessonDto, @User("userId") userId: string) {
+    return this.lessonsService.create(courseId, dto, userId);
   }
 
   @Get("lessons/:id")
@@ -43,12 +41,8 @@ export class LessonsController {
   @Patch("lessons/:id")
   @UseGuards(AuthGuard("jwt"), RolesGuard)
   @Roles("teacher")
-  update(
-    @Param("id") id: string,
-    @Body() body: { title?: string; content?: string; order?: number },
-    @User("userId") userId: string,
-  ) {
-    return this.lessonsService.update(id, body, userId);
+  update(@Param("id") id: string, @Body() dto: UpdateLessonDto, @User("userId") userId: string) {
+    return this.lessonsService.update(id, dto, userId);
   }
 
   @Delete("lessons/:id")

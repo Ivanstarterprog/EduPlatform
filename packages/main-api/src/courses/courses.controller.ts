@@ -13,6 +13,8 @@ import { CoursesService } from "./courses.service";
 import { RolesGuard } from "../auth/roles.guard";
 import { Roles } from "../roles/roles.decorator";
 import { User } from "../users/decorators/user.decorator";
+import { CreateCourseDto } from "./dto/create-course.dto";
+import { UpdateCourseDto } from "./dto/update-course.dto";
 
 @Controller("courses")
 export class CoursesController {
@@ -31,22 +33,15 @@ export class CoursesController {
   @Post()
   @UseGuards(AuthGuard("jwt"), RolesGuard)
   @Roles("teacher")
-  create(
-    @Body() body: { title: string; description: string },
-    @User("userId") userId: string,
-  ) {
-    return this.coursesService.create(body.title, body.description, userId);
+  create(@Body() dto: CreateCourseDto, @User("userId") userId: string) {
+    return this.coursesService.create(dto.title, dto.description, userId);
   }
 
   @Patch(":id")
   @UseGuards(AuthGuard("jwt"), RolesGuard)
   @Roles("teacher")
-  update(
-    @Param("id") id: string,
-    @Body() body: { title?: string; description?: string },
-    @User("userId") userId: string,
-  ) {
-    return this.coursesService.update(id, body, userId);
+  update(@Param("id") id: string, @Body() dto: UpdateCourseDto, @User("userId") userId: string) {
+    return this.coursesService.update(id, dto, userId);
   }
 
   @Delete(":id")

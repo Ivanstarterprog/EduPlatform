@@ -11,12 +11,14 @@ import { Cache } from "cache-manager";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Course, CourseDocument } from "./schemas/course.schema";
 import { User, UserDocument } from "../users/schemas/user.schema";
+import { Lesson, LessonDocument } from "../lessons/schemas/lesson.schema";
 
 @Injectable()
 export class CoursesService {
   constructor(
     @InjectModel(Course.name) private courseModel: Model<CourseDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Lesson.name) private lessonModel: Model<LessonDocument>,
     @Inject(CACHE_MANAGER) private cache: Cache,
   ) {}
 
@@ -85,6 +87,7 @@ export class CoursesService {
     if (course.teacher.toString() !== userId)
       throw new ForbiddenException("Вы не владелец курса");
 
+    await this.lessonModel.deleteMany({ course: new Types.ObjectId(id) });
     await this.courseModel.deleteOne({ _id: id });
 
     await this.cache.del("courses_all");
