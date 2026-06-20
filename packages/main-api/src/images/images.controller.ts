@@ -15,6 +15,7 @@ import { diskStorage } from "multer";
 import { extname, join, resolve } from "path";
 import { ImagesService } from "./images.service";
 import { RolesGuard } from "../auth/roles.guard";
+import { OptionalJwtGuard } from "../auth/optional-jwt.guard";
 import { Roles } from "../roles/roles.decorator";
 import { User } from "../users/decorators/user.decorator";
 
@@ -83,7 +84,8 @@ export class ImagesController {
   }
 
   @Get("images/:filename")
-  getImage(@Param("filename") filename: string) {
-    return this.imagesService.getImage(filename);
+  @UseGuards(OptionalJwtGuard)
+  getImage(@Param("filename") filename: string, @User("userId") userId?: string) {
+    return this.imagesService.getImage(filename, userId);
   }
 }

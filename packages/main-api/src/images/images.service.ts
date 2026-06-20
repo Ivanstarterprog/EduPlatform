@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  UnauthorizedException,
   StreamableFile,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
@@ -11,6 +12,7 @@ import { createReadStream, existsSync } from "fs";
 import { Image, ImageDocument } from "./schemas/image.schema";
 import { Course, CourseDocument } from "../courses/schemas/course.schema";
 import { Lesson, LessonDocument } from "../lessons/schemas/lesson.schema";
+import { User, UserDocument } from "../users/schemas/user.schema";
 import { KafkaService } from "../kafka/kafka.service";
 
 @Injectable()
@@ -19,6 +21,7 @@ export class ImagesService {
     @InjectModel(Image.name) private imageModel: Model<ImageDocument>,
     @InjectModel(Course.name) private courseModel: Model<CourseDocument>,
     @InjectModel(Lesson.name) private lessonModel: Model<LessonDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
     private kafka: KafkaService,
   ) {}
 
@@ -84,11 +87,36 @@ export class ImagesService {
     return { message: "Изображение загружено, обработка запущена", imageId: image._id };
   }
 
-  async getImage(filename: string): Promise<StreamableFile> {
+  async getImage(filename: string, userId?: string): Promise<StreamableFile> {
+    const image = await this.imageModel.findOne({ filename });
+    if (!image) {
+      throw new NotFoundException("Изображение не найдено");
+    }
+
     const processedPath = join(resolve(__dirname, "..", "..", "..", ".."), "uploads", "processed", filename);
     if (!existsSync(processedPath)) {
       throw new NotFoundException("Изображение ещё не обработано или не найдено");
     }
+
+    if (image.entityType === "lesson") {
+      if (!userId) {
+        throw new UnauthorizedException("Требуется авторизация для доступа к изображению урока");
+      }
+
+      const lesson = await this.lessonModel.findById(image.entityId);
+      if (!lesson) throw new NotFoundException("Урок не найден");
+
+      const course = await this.courseModel.findById(lesson.courseId);
+      if (!course) throw new NotFoundException("Курс не найден");
+
+      if (course.teacher.toString() !== userId) {
+        const user = await this.userModel.findById(userId);
+        if (!user || !user.enrolledCourses.some((c) => c.equals(lesson.courseId))) {
+          throw new ForbiddenException("Нет доступа к изображению");
+        }
+      }
+    }
+
     const ext = extname(filename).toLowerCase();
     const mimeMap: Record<string, string> = {
       ".png": "image/png",
