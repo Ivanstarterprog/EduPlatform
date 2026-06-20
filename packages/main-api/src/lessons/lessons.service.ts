@@ -11,6 +11,8 @@ import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Lesson, LessonDocument } from "./schemas/lesson.schema";
 import { Course, CourseDocument } from "../courses/schemas/course.schema";
 import { User, UserDocument } from "../users/schemas/user.schema";
+import { Image, ImageDocument } from "../images/schemas/image.schema";
+import { deleteImageFiles } from "../utils/delete-image-files";
 
 @Injectable()
 export class LessonsService {
@@ -18,6 +20,7 @@ export class LessonsService {
     @InjectModel(Lesson.name) private lessonModel: Model<LessonDocument>,
     @InjectModel(Course.name) private courseModel: Model<CourseDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Image.name) private imageModel: Model<ImageDocument>,
     @Inject(CACHE_MANAGER) private cache: Cache,
   ) {}
 
@@ -120,6 +123,14 @@ export class LessonsService {
     if (!course) throw new NotFoundException("Курс не найден");
     if (course.teacher.toString() !== userId)
       throw new ForbiddenException("Вы не владелец курса");
+
+    if (lesson.images) {
+      for (const img of lesson.images) {
+        if (img.filename) deleteImageFiles(img.filename);
+      }
+    }
+
+    await this.imageModel.deleteMany({ entityType: "lesson", entityId: new Types.ObjectId(id) });
 
     course.lessons = course.lessons.filter((l) => l.toString() !== id);
     await course.save();

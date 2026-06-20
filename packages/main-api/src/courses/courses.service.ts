@@ -12,6 +12,8 @@ import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Course, CourseDocument } from "./schemas/course.schema";
 import { User, UserDocument } from "../users/schemas/user.schema";
 import { Lesson, LessonDocument } from "../lessons/schemas/lesson.schema";
+import { Image, ImageDocument } from "../images/schemas/image.schema";
+import { deleteImageFiles } from "../utils/delete-image-files";
 
 @Injectable()
 export class CoursesService {
@@ -19,6 +21,7 @@ export class CoursesService {
     @InjectModel(Course.name) private courseModel: Model<CourseDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Lesson.name) private lessonModel: Model<LessonDocument>,
+    @InjectModel(Image.name) private imageModel: Model<ImageDocument>,
     @Inject(CACHE_MANAGER) private cache: Cache,
   ) {}
 
@@ -87,7 +90,31 @@ export class CoursesService {
     if (course.teacher.toString() !== userId)
       throw new ForbiddenException("Вы не владелец курса");
 
-    await this.lessonModel.deleteMany({ course: new Types.ObjectId(id) });
+    if (course.coverImage?.filename) {
+      deleteImageFiles(course.coverImage.filename);
+    }
+
+    const lessons = await this.lessonModel.find({ courseId: new Types.ObjectId(id) });
+    const lessonImageFilenames: string[] = [];
+    for (const lesson of lessons) {
+      if (lesson.images) {
+        for (const img of lesson.images) {
+          if (img.filename) lessonImageFilenames.push(img.filename);
+        }
+      }
+    }
+
+    const courseId = new Types.ObjectId(id);
+    const lessonIds = lessons.map((l) => l._id);
+    await this.imageModel.deleteMany({
+      $or: [
+        { entityType: "course", entityId: courseId },
+        { entityType: "lesson", entityId: { $in: lessonIds } },
+      ],
+    });
+
+    lessonImageFilenames.forEach(deleteImageFiles);
+    await this.lessonModel.deleteMany({ courseId });
     await this.courseModel.deleteOne({ _id: id });
 
     await this.cache.del("courses_all");

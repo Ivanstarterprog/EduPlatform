@@ -5,6 +5,7 @@ import { LessonsService } from "./lessons.service";
 import { Lesson, LessonSchema } from "./schemas/lesson.schema";
 import { Course, CourseSchema } from "../courses/schemas/course.schema";
 import { User, UserSchema } from "../users/schemas/user.schema";
+import { Image, ImageSchema } from "../images/schemas/image.schema";
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { User, UserSchema } from "../users/schemas/user.schema";
       { name: Lesson.name, schema: LessonSchema },
       { name: Course.name, schema: CourseSchema },
       { name: User.name, schema: UserSchema },
+      { name: Image.name, schema: ImageSchema },
     ]),
   ],
   controllers: [LessonsController],
